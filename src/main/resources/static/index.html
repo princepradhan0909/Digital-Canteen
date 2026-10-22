@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#183d2b">
+    <meta name="description" content="CampusBite - Order fresh and delicious food from your campus canteen.">
+    <title>CampusBite | Your Campus Canteen</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+<header class="site-header">
+    <div class="container nav-wrapper">
+        <a class="brand" href="#" aria-label="CampusBite home">
+            <span class="brand-icon">C<span>.</span></span>
+            <span>CampusBite<small>YOUR CAMPUS. YOUR FLAVOUR.</small></span>
+        </a>
+
+        <nav class="main-nav">
+            <a href="#home">Home</a>
+            <a href="#menu">Explore Menu</a>
+            <a href="#about">About</a>
+        </nav>
+
+        <a href="#cart-section" class="nav-cart">
+            <span aria-hidden="true">♧</span>
+            Cart <span id="cart-count" class="cart-badge">0</span>
+        </a>
+    </div>
+</header>
+
+<main>
+    <section class="hero" id="home">
+        <div class="container hero-grid">
+            <div class="hero-copy">
+                <span class="eyebrow"><span class="live-dot"></span> YOUR CAMPUS CANTEEN, REIMAGINED</span>
+                <h1>Good food.<br>Great <em>campus</em><br>moments.</h1>
+                <p>Your favourite campus meals are just a few clicks away. Discover, order and enjoy — without the long queues.</p>
+
+                <div class="hero-actions">
+                    <a href="#menu" class="button button-primary">Explore the menu <span>↗</span></a>
+                    <span class="hero-note">Fresh bites, happy breaks.</span>
+                </div>
+
+                <div class="hero-stats">
+                    <div><strong>15+</strong><span>Food choices</span></div>
+                    <div><strong>Easy</strong><span>Online ordering</span></div>
+                    <div><strong>Local</strong><span>Campus canteen</span></div>
+                </div>
+            </div>
+
+            <div class="hero-art">
+                <div class="hero-image-frame">
+                    <img
+                        src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1000"
+                        alt="Freshly prepared pizza"
+                    >
+                </div>
+                <div class="floating-note">
+                    <span class="note-icon">✳</span>
+                    <div><strong>Your break, upgraded.</strong><small>Good food is good mood.</small></div>
+                </div>
+                <span class="art-decoration decoration-one">✳</span>
+                <span class="art-decoration decoration-two">✦</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="menu-section section-padding" id="menu">
+        <div class="container">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">MADE FOR YOUR BREAK</span>
+                    <h2>Find your <em>favourite.</em></h2>
+                    <p>From quick snacks to filling meals, there's something for every craving.</p>
+                </div>
+                <span class="menu-label">THE CAMPUS MENU <span>✳</span></span>
+            </div>
+
+            <div class="menu-tools">
+                <label class="search-box">
+                    <span aria-hidden="true">⌕</span>
+                    <input type="search" id="food-search" placeholder="Search burger, coffee, dosa..." autocomplete="off" aria-label="Search food">
+                    <kbd>Search</kbd>
+                </label>
+                <span class="menu-status" id="menu-status" role="status" aria-live="polite">Loading delicious options...</span>
+            </div>
+
+            <div class="category-list" id="category-list" aria-label="Filter by food category">
+                <button type="button" class="category-chip active" data-category="All">All items</button>
+            </div>
+
+            <div class="food-grid" id="food-list"></div>
+
+            <div class="empty-state" id="empty-state" hidden>
+                <span>⌕</span>
+                <h3>No bites found</h3>
+                <p>Try a different search or choose another category.</p>
+                <button class="button button-secondary" id="clear-filters" type="button">Clear filters</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="order-section section-padding" id="cart-section">
+        <div class="container">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">ALMOST TIME TO EAT</span>
+                    <h2>Your little <em>feast.</em></h2>
+                    <p>Review your picks before placing your order.</p>
+                </div>
+                <span class="cart-heading-count"><span id="cart-count-heading">0</span> items in your cart</span>
+            </div>
+
+            <div class="order-layout">
+                <div class="cart-panel panel">
+                    <div class="panel-heading">
+                        <div><span class="eyebrow">YOUR SELECTION</span><h3>Order summary</h3></div>
+                        <span class="panel-icon">♧</span>
+                    </div>
+                    <div id="cart-items" class="cart-items">
+                        <div class="cart-empty">Your cart is waiting for something delicious.</div>
+                    </div>
+                    <div class="cart-total-row">
+                        <span>Subtotal</span>
+                        <strong id="cart-total">₹0.00</strong>
+                    </div>
+                    <p class="cart-footnote">Final amount is based on the items and quantities selected.</p>
+                    <button type="button" id="checkout-button" class="button button-primary button-full" disabled>
+                        Continue to checkout <span>→</span>
+                    </button>
+                </div>
+
+                <div class="checkout-panel panel" id="checkout-section" hidden>
+                    <div class="panel-heading">
+                        <div><span class="eyebrow">ONE LAST STEP</span><h3>Let's get your order ready.</h3></div>
+                        <span class="panel-icon">✳</span>
+                    </div>
+
+                    <form id="checkout-form">
+                        <label for="student-name">Your full name</label>
+                        <input id="student-name" name="studentName" type="text" placeholder="Enter your name" maxlength="100" autocomplete="name" required>
+
+                        <label for="student-phone">Phone number</label>
+                        <input id="student-phone" name="studentPhone" type="tel" placeholder="Enter your phone number" inputmode="tel" pattern="[0-9+\-\s()]{10,16}" maxlength="16" autocomplete="tel" required>
+
+                        <label for="payment-method">Payment method</label>
+                        <select id="payment-method" name="paymentMethod" required>
+                            <option value="COUNTER">Pay at canteen counter</option>
+                        </select>
+
+                        <div class="payment-note"><span>ⓘ</span><p>Payment is collected at the canteen counter. Online payment is not enabled.</p></div>
+
+                        <p class="form-message" id="checkout-message" role="status" aria-live="polite"></p>
+
+                        <button type="submit" id="place-order-button" class="button button-primary button-full">
+                            Place my order <span>→</span>
+                        </button>
+                    </form>
+                </div>
+
+                <div class="confirmation-panel panel" id="confirmation-section" hidden>
+                    <div class="success-icon">✓</div>
+                    <span class="eyebrow">ORDER RECEIVED</span>
+                    <h3>That's a wrap!</h3>
+                    <p id="confirmation-message">Your order has been submitted.</p>
+                    <p class="confirmation-note">Please pay at the canteen counter.</p>
+                    <button type="button" id="new-order-button" class="button button-primary button-full">Order something else ↗</button>
+                </div>
+
+                <aside class="order-aside">
+                    <div class="aside-card">
+                        <span class="aside-symbol">✳</span>
+                        <h3>Good food.<br>Better breaks.</h3>
+                        <p>Make your campus break count with food you love.</p>
+                    </div>
+                    <div class="aside-info">
+                        <span>01 / PICK YOUR FAVOURITES</span>
+                        <span>02 / REVIEW YOUR CART</span>
+                        <span>03 / PLACE YOUR ORDER</span>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <section class="about-strip" id="about">
+        <div class="container about-content">
+            <span class="about-star">✳</span>
+            <div><span class="eyebrow">MADE FOR CAMPUS LIFE</span><h2>Small breaks. <em>Big happiness.</em></h2></div>
+            <a href="#menu" class="button button-light">Find your next bite ↗</a>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-content">
+        <a class="brand footer-brand" href="#home">
+            <span class="brand-icon">C<span>.</span></span>
+            <span>CampusBite<small>YOUR CAMPUS. YOUR FLAVOUR.</small></span>
+        </a>
+        <p>Made with care for campus life. © <span id="current-year"></span> CampusBite.</p>
+        <a href="#home" class="back-top">Back to top ↑</a>
+    </div>
+</footer>
+
+<div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+</body>
+</html>
