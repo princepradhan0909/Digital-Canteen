@@ -30,9 +30,13 @@ public class FoodDataLoader {
                 new FoodItem("Veg Biryani", "Meals", 120.0, "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600"),
                 new FoodItem("Pasta", "Fast Food", 110.0, "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=600"),
                 new FoodItem("Cold Coffee", "Drinks", 70.0, "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600"),
-                new FoodItem("Lemon Soda", "Drinks", 40.0, "https://images.unsplash.com/photo-1513558161293-cdaf765edfd7?w=600"),
+                
                 new FoodItem("Chocolate Brownie", "Desserts", 80.0, "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600"),
-                new FoodItem("Gulab Jamun", "Desserts", 40.0, "https://images.unsplash.com/photo-1666190092159-4b1a1f1e1f8e?w=600"),
+               
+                    new FoodItem("Lemon Soda", "Drinks", 40.0, "https://images.unsplash.com/photo-1513558161293-cdaf765edfd7?w=600"),
+                    new FoodItem("Gulab Jamun", "Desserts", 40.0, "https://images.unsplash.com/photo-1605197161470-5d3b6b5b6f3a?w=600"),
+  
+               
                 new FoodItem("Veg Thali", "Meals", 140.0, "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600")
             );
 
