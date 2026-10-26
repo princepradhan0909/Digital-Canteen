@@ -2,6 +2,7 @@ package com.giit.campusbite;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -11,6 +12,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
@@ -24,19 +26,21 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/", "/index.html", "/style.css", "/script.js",
                                 "/manifest.webmanifest", "/service-worker.js",
                                 "/campusbite-icon.svg", "/api/auth/register",
-                                "/api/auth/verify-email",
-                                "/api/payments/razorpay/webhook",
-                                "/api/auth/login", "/api/foods", "/api/foods/available",
-                                "/api/foods/category", "/api/foods/popular").permitAll()
+                                "/api/auth/verify-email", "/api/auth/login",
+                                "/api/payments/razorpay/webhook").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/*/status").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**", "/api/notifications/**",
-                                "/api/auth/me").authenticated()
-                        .anyRequest().permitAll())
+                                "/api/auth/me", "/api/auth/logout",
+                                "/api/foods/**", "/api/catalog/**").authenticated()
+                        .anyRequest().denyAll())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

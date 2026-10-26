@@ -17,6 +17,95 @@
 </head>
 <body>
 
+<main class="welcome-screen" id="welcome-screen">
+    <div class="welcome-shell">
+        <a class="brand welcome-brand" href="/" aria-label="CampusBite">
+            <span class="brand-icon">C<span>.</span></span>
+            <span>CampusBite<small>GIIT DIGITAL CANTEEN</small></span>
+        </a>
+
+        <div class="welcome-layout">
+            <section class="welcome-story" aria-labelledby="welcome-heading">
+                <span class="eyebrow">MADE FOR GIIT</span>
+                <h1 id="welcome-heading">Discover great food <em>on campus.</em></h1>
+                <p>Explore your canteen favourites, order online, and spend your break enjoying it — not waiting in line.</p>
+                <div class="welcome-photo">
+                    <img src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=85"
+                         alt="Freshly prepared campus meal">
+                    <span>Good food. Better breaks.</span>
+                </div>
+            </section>
+
+            <section class="welcome-auth panel" aria-label="Student account">
+                <div id="signed-out-view">
+                    <div class="welcome-auth-heading">
+                        <span class="eyebrow">WELCOME TO CAMPUSBITE</span>
+                        <h2>Your next favourite<br>is just ahead.</h2>
+                        <p>Sign in or create a student account to explore the menu.</p>
+                    </div>
+                    <div class="account-tabs" role="tablist" aria-label="Account access">
+                        <button type="button" class="account-tab active" id="show-login">Sign in</button>
+                        <button type="button" class="account-tab" id="show-register">Create account</button>
+                    </div>
+                    <form id="login-form" class="account-form">
+                        <label for="login-email">College email</label>
+                        <input id="login-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" minlength="8" maxlength="72" autocomplete="current-password" required>
+                        <p id="login-message" class="form-message" role="status" aria-live="polite"></p>
+                        <button type="submit" class="button button-primary button-full">Sign in to CampusBite <span>→</span></button>
+                    </form>
+                    <form id="register-form" class="account-form" hidden>
+                        <label for="register-name">Full name</label>
+                        <input id="register-name" name="name" maxlength="100" autocomplete="name" required>
+                        <label for="register-phone">Mobile number</label>
+                        <input id="register-phone" name="phone" type="tel" maxlength="20" pattern="\+?[0-9]{7,15}" title="Enter 7 to 15 digits with an optional leading +" autocomplete="tel" required>
+                        <label for="register-email">Email address</label>
+                        <input id="register-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+                        <label for="register-password">Password (at least 8 characters)</label>
+                        <input id="register-password" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                        <label for="register-confirm-password">Confirm password</label>
+                        <input id="register-confirm-password" name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                        <label class="terms-consent">
+                            <input id="terms-accepted" name="termsAccepted" type="checkbox" required>
+                            <span>I agree to the <a href="#terms" data-legal-dialog="terms-dialog">Terms of Service</a> and <a href="#privacy" data-legal-dialog="privacy-dialog">Privacy Policy</a>.</span>
+                        </label>
+                        <p id="register-message" class="form-message" role="status" aria-live="polite"></p>
+                        <button type="submit" class="button button-primary button-full">Create student account <span>→</span></button>
+                    </form>
+                    <form id="verify-email-form" class="account-form" hidden>
+                        <p>A six-digit verification code was sent to your email. It expires in 15 minutes.</p>
+                        <label for="verification-email">Email</label>
+                        <input id="verification-email" name="email" type="email" autocomplete="email" required>
+                        <label for="verification-code">Verification code</label>
+                        <input id="verification-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+                        <p id="verification-message" class="form-message" role="status" aria-live="polite"></p>
+                        <button type="submit" class="button button-primary button-full">Verify email</button>
+                        <button type="button" class="button button-secondary button-full" id="resend-verification">Send another code</button>
+                    </form>
+                </div>
+            </section>
+        </div>
+        <p class="welcome-footer">A better break starts here <span>·</span> Global Institute of Information Technology</p>
+    </div>
+</main>
+
+<dialog id="terms-dialog" class="legal-dialog">
+    <form method="dialog"><button class="legal-close" aria-label="Close">×</button></form>
+    <span class="eyebrow">CAMPUSBITE</span>
+    <h2>Terms of Service</h2>
+    <p>CampusBite lets GIIT students browse the canteen menu, place orders and follow order updates. Menu availability and prices are provided by the canteen and may change. Orders are subject to canteen acceptance and availability.</p>
+    <p>Online payments are handled by Razorpay. CampusBite does not collect or store card details. For order support, contact the canteen staff.</p>
+</dialog>
+<dialog id="privacy-dialog" class="legal-dialog">
+    <form method="dialog"><button class="legal-close" aria-label="Close">×</button></form>
+    <span class="eyebrow">CAMPUSBITE</span>
+    <h2>Privacy Policy</h2>
+    <p>CampusBite stores the name, email address and phone number you provide to manage your account, orders and order updates. Passwords are stored as secure hashes. Order and payment status are used to fulfil and track orders.</p>
+    <p>Payments are processed by Razorpay; CampusBite does not store card details. Staff can access order information needed to prepare and manage canteen orders.</p>
+</dialog>
+
+<div id="app-shell" hidden>
 <header class="site-header">
     <div class="container nav-wrapper">
         <a class="brand" href="#" aria-label="CampusBite home">
@@ -31,7 +120,13 @@
             <a href="#about">About</a>
         </nav>
 
-            <a href="#account-section" class="account-link" id="account-link">Sign in</a>
+            <details class="profile-dropdown" id="profile-dropdown">
+                <summary class="account-link" id="account-link">Account</summary>
+                <div class="profile-menu">
+                    <a href="#account-section">Profile and orders</a>
+                    <button type="button" id="header-logout">Sign out</button>
+                </div>
+            </details>
             <button type="button" class="notification-button" id="notification-button"
                     aria-label="Notifications" hidden>Updates <span id="notification-count">0</span></button>
             <a href="#cart-section" class="nav-cart">
@@ -86,42 +181,6 @@
                 <p>Sign in to place and track orders, manage your profile, and see order updates.</p>
             </div>
             <div class="account-card panel">
-                <div id="signed-out-view">
-                    <div class="account-tabs" role="tablist" aria-label="Account access">
-                        <button type="button" class="account-tab active" id="show-login">Sign in</button>
-                        <button type="button" class="account-tab" id="show-register">Create account</button>
-                    </div>
-                    <form id="login-form" class="account-form">
-                        <label for="login-email">Email</label>
-                        <input id="login-email" name="email" type="email" autocomplete="email" required>
-                        <label for="login-password">Password</label>
-                        <input id="login-password" name="password" type="password" minlength="8" autocomplete="current-password" required>
-                        <p id="login-message" class="form-message" role="status"></p>
-                        <button type="submit" class="button button-primary button-full">Sign in</button>
-                    </form>
-                    <form id="register-form" class="account-form" hidden>
-                        <label for="register-name">Full name</label>
-                        <input id="register-name" name="name" maxlength="100" autocomplete="name" required>
-                        <label for="register-phone">Phone number</label>
-                        <input id="register-phone" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
-                        <label for="register-email">Email</label>
-                        <input id="register-email" name="email" type="email" maxlength="254" autocomplete="email" required>
-                        <label for="register-password">Password (at least 8 characters)</label>
-                        <input id="register-password" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
-                        <p id="register-message" class="form-message" role="status"></p>
-                        <button type="submit" class="button button-primary button-full">Create student account</button>
-                    </form>
-                    <form id="verify-email-form" class="account-form" hidden>
-                        <p>A six-digit code was sent to your email. It expires in 15 minutes.</p>
-                        <label for="verification-email">Email</label>
-                        <input id="verification-email" name="email" type="email" autocomplete="email" required>
-                        <label for="verification-code">Verification code</label>
-                        <input id="verification-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
-                        <p id="verification-message" class="form-message" role="status"></p>
-                        <button type="submit" class="button button-primary button-full">Verify email</button>
-                        <button type="button" class="button button-secondary button-full" id="resend-verification">Send another code</button>
-                    </form>
-                </div>
                 <div id="signed-in-view" hidden>
                     <div class="panel-heading">
                         <div><span class="eyebrow">ACCOUNT PROFILE</span><h3 id="profile-heading">Welcome back</h3></div>
@@ -340,6 +399,32 @@
         <a href="#home" class="back-top">Back to top ↑</a>
     </div>
 </footer>
+</div>
+
+<dialog id="product-dialog" class="product-dialog"
+        aria-labelledby="product-dialog-title"
+        aria-describedby="product-dialog-description">
+    <form id="product-customization-form">
+        <div class="product-dialog-heading">
+            <div>
+                <span class="eyebrow">MAKE IT YOURS</span>
+                <h2 id="product-dialog-title">Customize your order</h2>
+                <p id="product-dialog-description"></p>
+            </div>
+            <button type="button" id="product-dialog-close"
+                    class="legal-close" aria-label="Close customization">×</button>
+        </div>
+        <div id="product-options"></div>
+        <div class="product-dialog-footer">
+            <div>
+                <span>Price per item</span>
+                <strong id="product-customization-total"></strong>
+            </div>
+            <button type="submit" id="add-customized-product"
+                    class="button button-primary">Add to cart</button>
+        </div>
+    </form>
+</dialog>
 
 <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="false"></div>
 

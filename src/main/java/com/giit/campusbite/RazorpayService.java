@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -43,7 +44,10 @@ public class RazorpayService {
 
     public Map<String, Object> createOrder(Payment payment) {
         requireConfigured();
-        long amount = Math.round(payment.getCustomerOrder().getTotalAmount() * 100);
+        long amount = payment.getCustomerOrder().getTotalAmountDecimal()
+                .setScale(2, RoundingMode.HALF_UP)
+                .movePointRight(2)
+                .longValueExact();
         if (amount < 1) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Online payments require a positive order total");

@@ -18,6 +18,11 @@ const checkoutSection = document.getElementById("checkout-section");
 const checkoutForm = document.getElementById("checkout-form");
 const checkoutMessage = document.getElementById("checkout-message");
 const placeOrderButton = document.getElementById("place-order-button");
+const productDialog = document.getElementById("product-dialog");
+const productCustomizationForm = document.getElementById("product-customization-form");
+const productOptions = document.getElementById("product-options");
+const productCustomizationTotal = document.getElementById("product-customization-total");
+const addCustomizedProductButton = document.getElementById("add-customized-product");
 const confirmationSection = document.getElementById("confirmation-section");
 const toastContainer = document.getElementById("toast-container");
 const trackingForm = document.getElementById("tracking-form");
@@ -25,16 +30,21 @@ const trackingMessage = document.getElementById("tracking-message");
 const trackingResult = document.getElementById("tracking-result");
 const trackingTimeline = document.getElementById("tracking-timeline");
 const accountLink = document.getElementById("account-link");
+const profileDropdown = document.getElementById("profile-dropdown");
 const signedOutView = document.getElementById("signed-out-view");
 const signedInView = document.getElementById("signed-in-view");
 const adminDashboard = document.getElementById("admin-dashboard");
 const notificationButton = document.getElementById("notification-button");
 const notificationList = document.getElementById("notification-list");
+const welcomeScreen = document.getElementById("welcome-screen");
+const appShell = document.getElementById("app-shell");
 
 let foods = [];
+let categories = [];
 let popularFoods = [];
 let cart = [];
 let activeCategory = "All";
+let customizationProductId = null;
 let searchTerm = "";
 let isSubmitting = false;
 let trackedOrderId = null;
@@ -42,6 +52,7 @@ let lastTrackedStatus = null;
 let trackingTimer = null;
 let currentUser = null;
 let notificationTimer = null;
+let menuTimer = null;
 let seenNotificationIds = new Set();
 let authToken = "";
 
@@ -64,6 +75,7 @@ try {
         cart = savedCart
             .filter(item =>
                 Number.isInteger(Number(item.id)) &&
+                Number(item.id) > 0 &&
                 Number.isInteger(Number(item.quantity)) &&
                 Number(item.quantity) > 0 &&
                 Number.isFinite(Number(item.price)) &&
@@ -73,7 +85,15 @@ try {
                 id: Number(item.id),
                 name: String(item.name || "Food item"),
                 price: Number(item.price),
-                quantity: Number(item.quantity)
+                quantity: Number(item.quantity),
+                variantId: item.variantId == null
+                    ? null
+                    : Number(item.variantId),
+                addonIds: Array.isArray(item.addonIds)
+                    ? item.addonIds
+                        .map(Number)
+                        .filter(id => Number.isInteger(id) && id > 0)
+                    : []
             }));
     }
 } catch {
@@ -127,8 +147,9 @@ async function apiFetch(path, options = {}) {
     const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
     if (response.status === 401 && authToken &&
         !path.startsWith("/auth/login") &&
-        !path.startsWith("/auth/register")) {
-        signOut();
+        !path.startsWith("/auth/register") &&
+        !path.startsWith("/auth/verify-email")) {
+        expireAuthentication();
     }
     return response;
 }
@@ -149,11 +170,25 @@ function showAccountMessage(elementId, message) {
     document.getElementById(elementId).textContent = message || "";
 }
 
+function setFormSubmitting(form, submitting, loadingLabel) {
+    const button = form.querySelector('button[type="submit"]');
+    if (!button) return;
+    if (submitting) {
+        button.dataset.defaultLabel = button.textContent;
+        button.textContent = loadingLabel;
+    } else {
+        button.textContent = button.dataset.defaultLabel || button.textContent;
+        delete button.dataset.defaultLabel;
+    }
+    button.disabled = submitting;
+}
+
 function updateAccountViews() {
     const signedIn = Boolean(currentUser);
     signedOutView.hidden = signedIn;
     signedInView.hidden = !signedIn;
     adminDashboard.hidden = !signedIn || currentUser.role !== "ADMIN";
+    profileDropdown.hidden = !signedIn;
     notificationButton.hidden = !signedIn;
     accountLink.textContent = signedIn
         ? (currentUser.name.split(" ")[0] || "Account")
@@ -190,24 +225,79 @@ async function acceptAuthentication(response) {
     } catch (error) {
         console.error("Could not store sign-in token for this tab:", error);
     }
-    updateAccountViews();
+    enterAuthenticatedApp();
     showToast(`Signed in as ${currentUser.name}.`);
 }
 
 async function restoreAuthentication() {
-    if (!authToken) return;
+    if (!authToken) {
+        showWelcomeScreen();
+        return;
+    }
     try {
         const response = await apiFetch("/auth/me");
         if (!response.ok) {
-            authToken = "";
-            sessionStorage.removeItem("campusBiteToken");
+            if (response.status === 401) {
+                clearAuthentication();
+            } else {
+                showAccountMessage("login-message",
+                    await responseError(response, "Could not verify your session"));
+            }
             return;
         }
         currentUser = await response.json();
-        updateAccountViews();
+        enterAuthenticatedApp();
     } catch (error) {
         console.error("Could not restore account profile:", error);
+        showAccountMessage("login-message",
+            "Could not verify your sign-in right now. Check your connection and try again.");
     }
+}
+
+function enterAuthenticatedApp() {
+    welcomeScreen.hidden = true;
+    appShell.hidden = false;
+    updateAccountViews();
+    if (menuTimer) clearInterval(menuTimer);
+    menuTimer = setInterval(checkMenuUpdates, 60000);
+
+    if (currentUser?.role === "ADMIN") {
+        history.replaceState(null, "", `${location.pathname}#account-section`);
+    } else if (!location.hash) {
+        history.replaceState(null, "", `${location.pathname}#home`);
+    }
+    loadFoodMenu();
+    const targetId = location.hash.slice(1);
+    if (targetId) {
+        requestAnimationFrame(() => {
+            document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+        });
+    }
+}
+
+function showWelcomeScreen() {
+    welcomeScreen.hidden = false;
+    appShell.hidden = true;
+    updateAccountViews();
+}
+
+function clearAuthentication() {
+    authToken = "";
+    currentUser = null;
+    seenNotificationIds.clear();
+    if (menuTimer) clearInterval(menuTimer);
+    menuTimer = null;
+    try {
+        sessionStorage.removeItem("campusBiteToken");
+    } catch (error) {
+        console.error("Could not clear sign-in token:", error);
+    }
+    showWelcomeScreen();
+}
+
+function expireAuthentication() {
+    clearAuthentication();
+    showAccountMessage("login-message", "Your session expired. Please sign in again.");
 }
 
 async function loadNotifications() {
@@ -280,7 +370,7 @@ async function loadMyOrders() {
             const row = document.createElement("div");
             row.className = "my-order-row";
             const summary = document.createElement("span");
-            summary.textContent = `#${order.id} · ${displayOrderStatus(order.orderStatus)} · ${money(order.totalAmount)}`;
+            summary.textContent = `#${order.id} · ${displayOrderStatus(order.orderStatus)} · ${money(order.totalAmountDecimal ?? order.totalAmount)}`;
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = "Track";
@@ -452,7 +542,7 @@ function renderAdminOrders(orders) {
         const row = document.createElement("div");
         row.className = "admin-food-row";
         const label = document.createElement("span");
-        label.textContent = `#${order.id} · ${order.studentName} · ${money(order.totalAmount)} · ${order.orderStatus}`;
+        label.textContent = `#${order.id} · ${order.studentName} · ${money(order.totalAmountDecimal ?? order.totalAmount)} · ${order.orderStatus}`;
         const status = document.createElement("select");
         ["PREPARING", "READY", "COMPLETED", "CANCELLED"].forEach(value => {
             const option = document.createElement("option");
@@ -500,17 +590,135 @@ async function loadSalesReport() {
         `${money(report.pendingSales)} pending (${report.from} – ${report.to})`;
 }
 
-function signOut() {
-    authToken = "";
-    currentUser = null;
-    seenNotificationIds.clear();
-    try {
-        sessionStorage.removeItem("campusBiteToken");
-    } catch (error) {
-        console.error("Could not clear sign-in token:", error);
+async function signOut() {
+    let revokeFailed = false;
+    if (authToken) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            revokeFailed = !response.ok && response.status !== 401;
+        } catch (error) {
+            console.error("Could not revoke the sign-in token:", error);
+            revokeFailed = true;
+        }
     }
-    updateAccountViews();
-    showToast("You have signed out.");
+    clearAuthentication();
+    history.replaceState(null, "", location.pathname);
+    if (revokeFailed) {
+        showToast("Signed out on this device, but the server could not revoke the token. It expires within one hour.", "error");
+    } else {
+        showToast("You have signed out.");
+    }
+}
+
+function availableVariants(food) {
+    return Array.isArray(food.variants)
+        ? food.variants.filter(variant => variant.available !== false)
+        : [];
+}
+
+function availableAddons(food) {
+    return Array.isArray(food.addons)
+        ? food.addons.filter(addon => addon.available !== false)
+        : [];
+}
+
+function cartItemKey(item) {
+    const addonIds = [...(item.addonIds || [])]
+        .map(Number)
+        .sort((first, second) => first - second);
+    return `${Number(item.id)}:${item.variantId ?? "base"}:${addonIds.join(",")}`;
+}
+
+function refreshCartAgainstCatalog() {
+    let removedItem = false;
+    const refreshedCart = [];
+
+    cart.forEach(item => {
+        const food = foods.find(entry => Number(entry.id) === item.id);
+        if (!food || food.available === false) {
+            removedItem = true;
+            return;
+        }
+
+        const variants = availableVariants(food);
+        const variant = item.variantId == null
+            ? null
+            : variants.find(option => Number(option.id) === item.variantId);
+        if ((item.variantId != null && !variant)
+                || (!variant && variants.length > 0)) {
+            removedItem = true;
+            return;
+        }
+
+        const addonIds = item.addonIds || [];
+        if (new Set(addonIds).size !== addonIds.length) {
+            removedItem = true;
+            return;
+        }
+        const addons = availableAddons(food);
+        const selectedAddons = addonIds.map(id => addons.find(
+            option => Number(option.id) === id
+        ));
+        if (selectedAddons.some(addon => !addon)) {
+            removedItem = true;
+            return;
+        }
+
+        refreshedCart.push({
+            ...item,
+            name: food.name,
+            price: configuredPrice(food, variant, selectedAddons),
+            variantName: variant?.name || "",
+            addonNames: selectedAddons.map(addon => addon.name)
+        });
+    });
+
+    cart = refreshedCart;
+    saveCart();
+    if (removedItem) {
+        showToast("Your cart was updated because an item or option is no longer available.");
+    }
+}
+
+function configuredPrice(food, variant, addons) {
+    const baseCents = Math.round(Number(
+        variant ? variant.price : food.basePrice
+    ) * 100);
+    const addonCents = addons.reduce(
+        (total, addon) => total + Math.round(Number(addon.price) * 100),
+        0
+    );
+    return (baseCents + addonCents) / 100;
+}
+
+function addConfiguredFoodToCart(food, variant, addons) {
+    const addonIds = addons.map(addon => Number(addon.id));
+    const cartItem = {
+        id: Number(food.id),
+        name: food.name,
+        price: configuredPrice(food, variant, addons),
+        quantity: 1,
+        variantId: variant ? Number(variant.id) : null,
+        variantName: variant?.name || "",
+        addonIds,
+        addonNames: addons.map(addon => addon.name)
+    };
+    const key = cartItemKey(cartItem);
+    const existing = cart.find(item => cartItemKey(item) === key);
+
+    if (existing) {
+        existing.quantity++;
+    } else {
+        cart.push(cartItem);
+    }
+
+    saveCart();
+    renderCart();
+    renderRecommendations();
+    showToast(`${food.name} added to your cart.`);
 }
 
 function addToCart(foodId) {
@@ -521,33 +729,119 @@ function addToCart(foodId) {
         return;
     }
 
-    const existing = cart.find(item => item.id === Number(foodId));
-
-    if (existing) {
-        existing.quantity++;
-    } else {
-        cart.push({
-            id: Number(food.id),
-            name: food.name,
-            price: Number(food.price),
-            quantity: 1
-        });
+    if (availableVariants(food).length || availableAddons(food).length) {
+        openProductCustomization(food);
+        return;
     }
 
-    saveCart();
-    renderCart();
-    renderRecommendations();
-    showToast(`${food.name} added to your cart.`);
+    addConfiguredFoodToCart(food, null, []);
 }
 
-function changeQuantity(foodId, amount) {
-    const item = cart.find(entry => entry.id === Number(foodId));
+function openProductCustomization(food) {
+    customizationProductId = Number(food.id);
+    productCustomizationForm.reset();
+    productOptions.replaceChildren();
+    document.getElementById("product-dialog-title").textContent = food.name;
+    document.getElementById("product-dialog-description").textContent =
+        food.description || "Customize your order before adding it to the cart.";
+
+    const variants = availableVariants(food);
+    if (variants.length) {
+        const fieldset = document.createElement("fieldset");
+        fieldset.className = "product-option-group";
+        const legend = document.createElement("legend");
+        legend.textContent = "Choose an option";
+        fieldset.appendChild(legend);
+
+        variants.forEach(variant => {
+            const label = document.createElement("label");
+            label.className = "product-option-choice";
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = "selected-variant";
+            input.value = variant.id;
+            input.required = true;
+            const name = document.createElement("span");
+            name.textContent = variant.name;
+            const price = document.createElement("strong");
+            price.textContent = money(variant.price);
+            label.append(input, name, price);
+            fieldset.appendChild(label);
+        });
+        productOptions.appendChild(fieldset);
+    }
+
+    const addons = availableAddons(food);
+    if (addons.length) {
+        const fieldset = document.createElement("fieldset");
+        fieldset.className = "product-option-group";
+        const legend = document.createElement("legend");
+        legend.textContent = "Optional extras";
+        fieldset.appendChild(legend);
+
+        addons.forEach(addon => {
+            const label = document.createElement("label");
+            label.className = "product-option-choice";
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.name = "selected-addon";
+            input.value = addon.id;
+            const details = document.createElement("span");
+            details.className = "product-option-details";
+            const name = document.createElement("span");
+            name.textContent = addon.name;
+            details.appendChild(name);
+            if (addon.selectionGroup) {
+                const group = document.createElement("small");
+                group.textContent = addon.selectionGroup;
+                details.appendChild(group);
+            }
+            const price = document.createElement("strong");
+            price.textContent = `+${money(addon.price)}`;
+            label.append(input, details, price);
+            fieldset.appendChild(label);
+        });
+        productOptions.appendChild(fieldset);
+    }
+
+    const updatePreview = () => {
+        const variantInput = productCustomizationForm
+            .querySelector('input[name="selected-variant"]:checked');
+        const selectedVariant = variants.find(
+            variant => String(variant.id) === variantInput?.value
+        ) || null;
+        if (variants.length && !selectedVariant) {
+            productCustomizationTotal.textContent = "Choose an option";
+            addCustomizedProductButton.disabled = true;
+            return;
+        }
+        const selectedAddonIds = new Set(
+            [...productCustomizationForm
+                .querySelectorAll('input[name="selected-addon"]:checked')]
+                .map(input => Number(input.value))
+        );
+        const selectedAddons = addons.filter(
+            addon => selectedAddonIds.has(Number(addon.id))
+        );
+        productCustomizationTotal.textContent = money(
+            configuredPrice(food, selectedVariant, selectedAddons)
+        );
+        addCustomizedProductButton.disabled = false;
+    };
+
+    productCustomizationForm.onchange = updatePreview;
+    updatePreview();
+    productDialog.showModal();
+}
+
+function changeQuantity(key, amount) {
+    const item = cart.find(entry => cartItemKey(entry) === key);
     if (!item) return;
 
     item.quantity += amount;
 
     if (item.quantity <= 0) {
-        cart = cart.filter(entry => entry.id !== Number(foodId));
+        cart = cart.filter(entry => cartItemKey(entry) !== key);
     }
 
     saveCart();
@@ -602,6 +896,15 @@ function renderCart() {
         price.textContent = `${money(item.price)} each`;
 
         details.append(name, price);
+        const customizations = [
+            item.variantName,
+            ...(item.addonNames || [])
+        ].filter(Boolean);
+        if (customizations.length) {
+            const selection = document.createElement("small");
+            selection.textContent = customizations.join(" · ");
+            details.appendChild(selection);
+        }
 
         const controls = document.createElement("div");
         controls.className = "quantity-controls";
@@ -609,7 +912,7 @@ function renderCart() {
         const decrease = createQuantityButton(
             "−",
             `Remove one ${item.name}`,
-            () => changeQuantity(item.id, -1)
+            () => changeQuantity(cartItemKey(item), -1)
         );
 
         const quantity = document.createElement("span");
@@ -618,7 +921,7 @@ function renderCart() {
         const increase = createQuantityButton(
             "+",
             `Add one ${item.name}`,
-            () => changeQuantity(item.id, 1)
+            () => changeQuantity(cartItemKey(item), 1)
         );
 
         controls.append(decrease, quantity, increase);
@@ -633,7 +936,8 @@ function renderCart() {
         remove.setAttribute("aria-label", `Remove ${item.name} from cart`);
 
         remove.addEventListener("click", () => {
-            cart = cart.filter(entry => entry.id !== item.id);
+            const key = cartItemKey(item);
+            cart = cart.filter(entry => cartItemKey(entry) !== key);
             saveCart();
             renderCart();
             showToast(`${item.name} removed from cart.`);
@@ -653,23 +957,26 @@ function renderCategories() {
     categoryList.replaceChildren();
 
     const allCategories = [
-        "All",
-        ...new Set(foods.map(getCategory))
+        { id: "All", name: "All" },
+        ...categories.map(category => ({
+            id: String(category.id),
+            name: category.name
+        }))
     ];
 
     allCategories.forEach(category => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "category-chip";
-        button.textContent = category === "All" ? "All items" : category;
-        button.dataset.category = category;
+        button.textContent = category.id === "All" ? "All items" : category.name;
+        button.dataset.category = category.id;
 
-        const selected = activeCategory === category;
+        const selected = activeCategory === category.id;
         button.classList.toggle("active", selected);
         button.setAttribute("aria-pressed", String(selected));
 
         button.addEventListener("click", () => {
-            activeCategory = category;
+            activeCategory = category.id;
             renderCategories();
             renderFoods();
         });
@@ -722,24 +1029,43 @@ function createFoodCard(food) {
 
     const description = document.createElement("p");
     description.className = "food-description";
-    description.textContent = "A campus favourite";
+    description.textContent =
+        food.description || "Made fresh for your campus break.";
+
+    let dietTag = null;
+    if (food.vegetarian !== null && food.vegetarian !== undefined) {
+        dietTag = document.createElement("span");
+        dietTag.className = `food-diet-tag${food.vegetarian ? "" : " non-veg"}`;
+        dietTag.textContent = food.vegetarian ? "Vegetarian" : "Non-vegetarian";
+    }
 
     const bottom = document.createElement("div");
     bottom.className = "food-card-bottom";
 
     const price = document.createElement("span");
     price.className = "food-price";
-    price.textContent = money(food.price);
+    const variants = availableVariants(food);
+    const displayedPrice = variants.length
+        ? Math.min(...variants.map(variant => Number(variant.price)))
+        : Number(food.basePrice);
+    price.textContent = `${variants.length ? "From " : ""}${money(displayedPrice)}`;
 
     const button = document.createElement("button");
     button.type = "button";
     button.className = "add-to-cart";
-    button.innerHTML = "<span aria-hidden='true'>+</span> Add";
-    button.setAttribute("aria-label", `Add ${food.name} to cart`);
+    const needsCustomization =
+        variants.length > 0 || availableAddons(food).length > 0;
+    button.textContent = needsCustomization ? "Customize" : "Add";
+    button.setAttribute(
+        "aria-label",
+        `${needsCustomization ? "Customize" : "Add"} ${food.name}`
+    );
     button.addEventListener("click", () => addToCart(food.id));
 
     bottom.append(price, button);
-    content.append(name, description, bottom);
+    content.append(name, description);
+    if (dietTag) content.appendChild(dietTag);
+    content.appendChild(bottom);
     card.append(imageWrap, content);
     return card;
 }
@@ -750,13 +1076,14 @@ function renderFoods() {
     const filteredFoods = foods.filter(food => {
         const matchesCategory =
             activeCategory === "All" ||
-            getCategory(food) === activeCategory;
+            String(food.categoryId) === activeCategory;
 
         const query = searchTerm.toLowerCase();
 
         const matchesSearch = [
             food.name,
-            food.category
+            food.category,
+            food.description
         ].some(value => String(value || "").toLowerCase().includes(query));
 
         return matchesCategory && matchesSearch;
@@ -770,6 +1097,8 @@ function renderFoods() {
     if (foods.length > 0) {
         menuStatus.textContent =
             `${filteredFoods.length} of ${foods.length} food items`;
+    } else {
+        menuStatus.textContent = "No food items are currently available.";
     }
 }
 
@@ -777,8 +1106,11 @@ function renderRecommendations() {
     if (!recommendationList) return;
 
     recommendationList.replaceChildren();
-    const availableIds = new Set(foods.map(food => Number(food.id)));
-    const ranked = popularFoods.filter(food => availableIds.has(Number(food.id)));
+    const ranked = popularFoods
+        .map(popular => foods.find(
+            food => Number(food.id) === Number(popular.id)
+        ))
+        .filter(Boolean);
     const suggestions = (ranked.length ? ranked : foods).slice(0, 4);
 
     suggestions.forEach(food =>
@@ -976,7 +1308,9 @@ async function placeOrder(event) {
         paymentMethod: document.getElementById("payment-method").value,
         items: submittedCart.map(item => ({
             foodItemId: item.id,
-            quantity: item.quantity
+            quantity: item.quantity,
+            variantId: item.variantId ?? null,
+            addonIds: Array.isArray(item.addonIds) ? item.addonIds : []
         }))
     };
 
@@ -1132,22 +1466,34 @@ async function placeOrder(event) {
 }
 
 async function loadFoodMenu() {
+    if (!currentUser) return;
     menuStatus.textContent = "Loading delicious options...";
 
     try {
-        const response = await fetch(`${API_BASE_URL}/foods`);
-
-        if (!response.ok) {
-            throw new Error(`Menu request failed (${response.status}).`);
+        const [productsResponse, categoriesResponse] = await Promise.all([
+            apiFetch("/catalog/products"),
+            apiFetch("/catalog/categories")
+        ]);
+        if (!productsResponse.ok || !categoriesResponse.ok) {
+            throw new Error(
+                `Catalog request failed (${productsResponse.status}/${categoriesResponse.status}).`
+            );
+        }
+        const [productResult, categoryResult] = await Promise.all([
+            productsResponse.json(),
+            categoriesResponse.json()
+        ]);
+        if (!Array.isArray(productResult) || !Array.isArray(categoryResult)) {
+            throw new Error("Unexpected catalog response.");
         }
 
-        const result = await response.json();
-
-        if (!Array.isArray(result)) {
-            throw new Error("Unexpected menu response.");
+        foods = productResult.filter(food => food.available !== false);
+        categories = categoryResult.filter(category => category.active !== false);
+        if (activeCategory !== "All"
+                && !categories.some(category =>
+                    String(category.id) === activeCategory)) {
+            activeCategory = "All";
         }
-
-        foods = result.filter(food => food.available !== false);
         try {
             const popularResponse = await apiFetch("/foods/popular");
             if (popularResponse.ok) {
@@ -1158,22 +1504,12 @@ async function loadFoodMenu() {
             console.error("Popular food options could not load:", error);
         }
 
-        // Keep only cart items that still exist in the menu.
-        const availableIds = new Set(foods.map(food => Number(food.id)));
-
-        cart = cart
-            .filter(item => availableIds.has(item.id))
-            .map(item => {
-                const food = foods.find(entry => Number(entry.id) === item.id);
-
-                return {
-                    ...item,
-                    name: food.name,
-                    price: Number(food.price)
-                };
-            });
-
-        saveCart();
+        refreshCartAgainstCatalog();
+        const retry = document.getElementById("menu-retry");
+        if (retry) retry.remove();
+        emptyState.querySelector("h3").textContent = "No bites found";
+        emptyState.querySelector("p").textContent =
+            "Try a different search or choose another category.";
         renderCategories();
         renderFoods();
         renderRecommendations();
@@ -1181,8 +1517,9 @@ async function loadFoodMenu() {
         document.getElementById("food-choice-count").textContent =
             `${foods.length}+`;
 
-        menuStatus.textContent =
-            `${foods.length} delicious options ready to explore`;
+        menuStatus.textContent = foods.length
+            ? `${foods.length} delicious options ready to explore`
+            : "No food items are currently available.";
 
     } catch (error) {
         console.error("Menu loading error:", error);
@@ -1212,33 +1549,31 @@ async function loadFoodMenu() {
 }
 
 async function checkMenuUpdates() {
-    if (document.hidden || foods.length === 0) return;
+    if (!currentUser || document.hidden) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/foods`);
-        if (!response.ok) {
-            throw new Error(`Menu refresh failed (${response.status}).`);
+        const [productsResponse, categoriesResponse] = await Promise.all([
+            apiFetch("/catalog/products"),
+            apiFetch("/catalog/categories")
+        ]);
+        if (!productsResponse.ok || !categoriesResponse.ok) {
+            throw new Error(
+                `Catalog refresh failed (${productsResponse.status}/${categoriesResponse.status}).`
+            );
         }
-        const result = await response.json();
-        if (!Array.isArray(result)) {
-            throw new Error("Unexpected menu refresh response.");
+        const [productResult, categoryResult] = await Promise.all([
+            productsResponse.json(),
+            categoriesResponse.json()
+        ]);
+        if (!Array.isArray(productResult) || !Array.isArray(categoryResult)) {
+            throw new Error("Unexpected catalog refresh response.");
         }
 
-        const availableFoods = result.filter(food => food.available !== false);
-        const currentSnapshot = JSON.stringify(foods.map(food => ({
-            id: food.id,
-            name: food.name,
-            category: food.category,
-            price: food.price,
-            imageUrl: food.imageUrl
-        })));
-        const latestSnapshot = JSON.stringify(availableFoods.map(food => ({
-            id: food.id,
-            name: food.name,
-            category: food.category,
-            price: food.price,
-            imageUrl: food.imageUrl
-        })));
+        const currentSnapshot = JSON.stringify({ foods, categories });
+        const latestSnapshot = JSON.stringify({
+            foods: productResult.filter(food => food.available !== false),
+            categories: categoryResult.filter(category => category.active !== false)
+        });
 
         if (currentSnapshot !== latestSnapshot) {
             showToast("The menu or item availability has been updated.");
@@ -1275,6 +1610,7 @@ document.getElementById("login-form").addEventListener("submit", async event => 
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     showAccountMessage("login-message", "Signing in...");
+    setFormSubmitting(formElement, true, "Signing in...");
     try {
         const response = await apiFetch("/auth/login", {
             method: "POST",
@@ -1289,6 +1625,8 @@ document.getElementById("login-form").addEventListener("submit", async event => 
         formElement.reset();
     } catch (error) {
         showAccountMessage("login-message", error.message);
+    } finally {
+        setFormSubmitting(formElement, false);
     }
 });
 
@@ -1296,7 +1634,13 @@ document.getElementById("register-form").addEventListener("submit", async event 
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    if (form.get("password") !== form.get("confirmPassword")) {
+        showAccountMessage("register-message", "The passwords do not match.");
+        document.getElementById("register-confirm-password").focus();
+        return;
+    }
     showAccountMessage("register-message", "Creating your student account...");
+    setFormSubmitting(formElement, true, "Creating account...");
     try {
         const response = await apiFetch("/auth/register", {
             method: "POST",
@@ -1304,7 +1648,8 @@ document.getElementById("register-form").addEventListener("submit", async event 
                 name: form.get("name"),
                 phone: form.get("phone"),
                 email: form.get("email"),
-                password: form.get("password")
+                password: form.get("password"),
+                termsAccepted: form.get("termsAccepted") === "on"
             })
         });
         if (response.status === 202) {
@@ -1325,6 +1670,8 @@ document.getElementById("register-form").addEventListener("submit", async event 
                 ? "register-message"
                 : "verification-message",
             error.message);
+    } finally {
+        setFormSubmitting(formElement, false);
     }
 });
 
@@ -1333,6 +1680,7 @@ document.getElementById("verify-email-form").addEventListener("submit", async ev
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     showAccountMessage("verification-message", "Verifying your email...");
+    setFormSubmitting(formElement, true, "Verifying...");
     try {
         const response = await apiFetch("/auth/verify-email", {
             method: "POST",
@@ -1349,11 +1697,20 @@ document.getElementById("verify-email-form").addEventListener("submit", async ev
         showAccountMessage("verification-message", "");
     } catch (error) {
         showAccountMessage("verification-message", error.message);
+    } finally {
+        setFormSubmitting(formElement, false);
     }
 });
 
 document.getElementById("resend-verification").addEventListener("click", () => {
     document.getElementById("register-form").requestSubmit();
+});
+
+document.querySelectorAll("[data-legal-dialog]").forEach(link => {
+    link.addEventListener("click", event => {
+        event.preventDefault();
+        document.getElementById(link.dataset.legalDialog).showModal();
+    });
 });
 
 document.getElementById("profile-form").addEventListener("submit", async event => {
@@ -1372,7 +1729,14 @@ document.getElementById("profile-form").addEventListener("submit", async event =
             body: JSON.stringify(update)
         });
         if (!response.ok) throw new Error(await responseError(response, "Profile update failed"));
-        currentUser = await response.json();
+        const result = await response.json();
+        authToken = result.token;
+        currentUser = result.user;
+        try {
+            sessionStorage.setItem("campusBiteToken", authToken);
+        } catch (error) {
+            console.error("Could not refresh sign-in token:", error);
+        }
         document.getElementById("profile-new-password").value = "";
         document.getElementById("profile-heading").textContent =
             `Hello, ${currentUser.name}`;
@@ -1384,6 +1748,7 @@ document.getElementById("profile-form").addEventListener("submit", async event =
 });
 
 document.getElementById("logout-button").addEventListener("click", signOut);
+document.getElementById("header-logout").addEventListener("click", signOut);
 
 notificationButton.addEventListener("click", () => {
     notificationList.hidden = !notificationList.hidden;
@@ -1430,6 +1795,52 @@ document.getElementById("clear-filters").addEventListener("click", () => {
     renderFoods();
 });
 
+document.getElementById("product-dialog-close").addEventListener("click", () => {
+    productDialog.close();
+});
+
+productDialog.addEventListener("click", event => {
+    if (event.target === productDialog) {
+        productDialog.close();
+    }
+});
+
+productDialog.addEventListener("close", () => {
+    customizationProductId = null;
+});
+
+productCustomizationForm.addEventListener("submit", event => {
+    event.preventDefault();
+    const food = foods.find(
+        item => Number(item.id) === customizationProductId
+    );
+    if (!food) {
+        productDialog.close();
+        showToast("This item is no longer available.", "error");
+        return;
+    }
+
+    const variantInput = productCustomizationForm
+        .querySelector('input[name="selected-variant"]:checked');
+    const variant = availableVariants(food).find(
+        option => String(option.id) === variantInput?.value
+    ) || null;
+    if (availableVariants(food).length && !variant) {
+        showToast("Choose an option before adding this item.", "error");
+        return;
+    }
+    const selectedAddonIds = new Set(
+        [...productCustomizationForm
+            .querySelectorAll('input[name="selected-addon"]:checked')]
+            .map(input => Number(input.value))
+    );
+    const addons = availableAddons(food).filter(
+        addon => selectedAddonIds.has(Number(addon.id))
+    );
+    addConfiguredFoodToCart(food, variant, addons);
+    productDialog.close();
+});
+
 checkoutButton.addEventListener("click", showCheckout);
 checkoutForm.addEventListener("submit", placeOrder);
 
@@ -1443,10 +1854,7 @@ document.getElementById("new-order-button").addEventListener("click", () => {
     });
 });
 
-loadFoodMenu();
-setInterval(checkMenuUpdates, 60000);
 restoreAuthentication().then(() => {
-    updateAccountViews();
     if (currentUser) {
         try {
             const savedOrderId = sessionStorage.getItem("campusBiteTrackedOrder");
@@ -1454,6 +1862,8 @@ restoreAuthentication().then(() => {
         } catch (error) {
             console.error("Could not restore tracked order:", error);
         }
+    } else {
+        showWelcomeScreen();
     }
 });
 

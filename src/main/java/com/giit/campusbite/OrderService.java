@@ -7,7 +7,10 @@ import com.giit.campusbite.dto.OrderStatusHistoryDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,8 +20,15 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
 
+    private static final BigDecimal MAX_SNAPSHOT_PRICE =
+            new BigDecimal("99999999.99");
+    private static final BigDecimal MAX_ORDER_TOTAL =
+            new BigDecimal("9999999999.99");
+
     private final CustomerOrderRepository orderRepository;
     private final FoodItemRepository foodRepository;
+    private final FoodVariantRepository variantRepository;
+    private final FoodAddonRepository addonRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
     private final OrderStatusHistoryRepository statusHistoryRepository;
@@ -29,6 +39,8 @@ public class OrderService {
     public OrderService(
             CustomerOrderRepository orderRepository,
             FoodItemRepository foodRepository,
+            FoodVariantRepository variantRepository,
+            FoodAddonRepository addonRepository,
             OrderItemRepository orderItemRepository,
             PaymentRepository paymentRepository,
             OrderStatusHistoryRepository statusHistoryRepository,
@@ -38,6 +50,8 @@ public class OrderService {
 
         this.orderRepository = orderRepository;
         this.foodRepository = foodRepository;
+        this.variantRepository = variantRepository;
+        this.addonRepository = addonRepository;
         this.orderItemRepository = orderItemRepository;
         this.paymentRepository = paymentRepository;
         this.statusHistoryRepository = statusHistoryRepository;
@@ -102,7 +116,7 @@ public class OrderService {
         order.setStudentEmail(studentEmail);
         order = orderRepository.save(order);
 
-        double total = 0.0;
+        BigDecimal total = BigDecimal.ZERO.setScale(2, RoundingMode.UNNECESSARY);
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (OrderRequest.OrderLineRequest line : request.getItems()) {
@@ -127,17 +141,29 @@ public class OrderService {
                         food.getName() + " is currently unavailable");
             }
 
-            double price = food.getPrice();
             int quantity = line.getQuantity();
+            LinePricing pricing = resolveLinePricing(food, line);
+            total = total.add(pricing.unitPrice()
+                    .multiply(BigDecimal.valueOf(quantity)));
+            if (total.compareTo(MAX_ORDER_TOTAL) > 0) {
+                throw new IllegalArgumentException(
+                        "Order total exceeds the supported payment limit");
+            }
 
-            total += price * quantity;
-
-            orderItems.add(new OrderItem(
-                    order, food, quantity, price
-            ));
+            OrderItem orderItem = new OrderItem(
+                    order, food, quantity, pricing.unitPrice().doubleValue());
+            orderItem.setUnitPriceAmount(pricing.unitPrice());
+            orderItem.setBasePriceAmount(pricing.basePrice());
+            if (pricing.variant() != null) {
+                orderItem.setVariantId(pricing.variant().getId());
+                orderItem.setVariantName(pricing.variant().getName());
+                orderItem.setVariantPriceAmount(pricing.variant().getPrice());
+            }
+            orderItem.setAddons(pricing.addons());
+            orderItems.add(orderItem);
         }
 
-        order.setTotalAmount(total);
+        order.setTotalAmountDecimal(total);
         order = orderRepository.save(order);
 
         orderItemRepository.saveAll(orderItems);
@@ -154,6 +180,80 @@ public class OrderService {
                 "Your order #" + order.getId() + " was received.");
 
         return order;
+    }
+
+    private LinePricing resolveLinePricing(
+            FoodItem food, OrderRequest.OrderLineRequest line) {
+        BigDecimal basePrice = food.getPriceAmount();
+        if (basePrice == null) {
+            throw new IllegalArgumentException(
+                    food.getName() + " does not have a valid price");
+        }
+        if (basePrice.compareTo(MAX_SNAPSHOT_PRICE) > 0) {
+            throw new IllegalArgumentException(
+                    food.getName() + " exceeds the supported item price limit");
+        }
+
+        List<FoodVariant> availableVariants = variantRepository
+                .findAllByFoodItem_IdAndAvailableTrueOrderByDisplayOrderAscNameAsc(
+                        food.getId());
+        FoodVariant selectedVariant = null;
+        if (line.getVariantId() != null) {
+            selectedVariant = variantRepository.findById(line.getVariantId())
+                    .filter(variant -> variant.isAvailable()
+                            && food.getId().equals(variant.getFoodItem().getId()))
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Selected variant is unavailable for " + food.getName()));
+        } else if (!availableVariants.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Choose a variant for " + food.getName());
+        }
+
+        List<Long> addonIds = line.getAddonIds() == null
+                ? List.of() : line.getAddonIds();
+        if (addonIds.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("Add-on IDs cannot be null");
+        }
+        if (new HashSet<>(addonIds).size() != addonIds.size()) {
+            throw new IllegalArgumentException(
+                    "The same add-on cannot be selected more than once");
+        }
+
+        Map<Long, FoodAddon> availableAddons = addonRepository
+                .findAllById(addonIds).stream()
+                .collect(Collectors.toMap(FoodAddon::getId, addon -> addon));
+        if (availableAddons.size() != addonIds.size()) {
+            throw new IllegalArgumentException(
+                    "One or more selected add-ons are unavailable");
+        }
+
+        List<OrderItem.AddonSnapshot> addonSnapshots = new ArrayList<>();
+        BigDecimal unitPrice = selectedVariant == null
+                ? basePrice : selectedVariant.getPrice();
+        for (Long addonId : addonIds) {
+            FoodAddon addon = availableAddons.get(addonId);
+            if (!addon.isAvailable()
+                    || !food.getId().equals(addon.getFoodItem().getId())) {
+                throw new IllegalArgumentException(
+                        "Selected add-on is unavailable for " + food.getName());
+            }
+            unitPrice = unitPrice.add(addon.getPrice());
+            addonSnapshots.add(new OrderItem.AddonSnapshot(
+                    addon.getId(), addon.getName(), addon.getPrice()));
+        }
+        if (unitPrice.compareTo(MAX_SNAPSHOT_PRICE) > 0) {
+            throw new IllegalArgumentException(
+                    food.getName() + " exceeds the supported item price limit");
+        }
+        return new LinePricing(
+                basePrice, selectedVariant, addonSnapshots, unitPrice);
+    }
+
+    private record LinePricing(
+            BigDecimal basePrice,
+            FoodVariant variant,
+            List<OrderItem.AddonSnapshot> addons,
+            BigDecimal unitPrice) {
     }
 
     @Transactional

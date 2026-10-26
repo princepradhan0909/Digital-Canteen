@@ -40,6 +40,7 @@ public class JwtService {
                     "sub", user.getEmail(),
                     "role", user.getRole(),
                     "name", user.getName(),
+                    "ver", user.getTokenVersion(),
                     "iat", Instant.now().getEpochSecond(),
                     "exp", Instant.now().plusSeconds(3600).getEpochSecond()
             )));

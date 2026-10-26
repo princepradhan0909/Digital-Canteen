@@ -65,6 +65,10 @@ public class OrderRequest {
         @Min(1)
         private Integer quantity;
 
+        private Long variantId;
+
+        private List<Long> addonIds = List.of();
+
         public Long getFoodItemId() {
             return foodItemId;
         }
@@ -79,6 +83,22 @@ public class OrderRequest {
 
         public void setQuantity(Integer quantity) {
             this.quantity = quantity;
+        }
+
+        public Long getVariantId() {
+            return variantId;
+        }
+
+        public void setVariantId(Long variantId) {
+            this.variantId = variantId;
+        }
+
+        public List<Long> getAddonIds() {
+            return addonIds;
+        }
+
+        public void setAddonIds(List<Long> addonIds) {
+            this.addonIds = addonIds;
         }
     }
 }

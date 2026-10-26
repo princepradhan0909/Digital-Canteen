@@ -18,9 +18,12 @@ import java.util.Map;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final StudentUserRepository users;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+                                   StudentUserRepository users) {
         this.jwtService = jwtService;
+        this.users = users;
     }
 
     @Override
@@ -33,12 +36,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Map<String, Object> claims = jwtService.validateAndRead(
                     authorization.substring(7));
             if (claims != null) {
-                String role = (String) claims.get("role");
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        claims.get("sub"),
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role)));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                String email = (String) claims.get("sub");
+                Object tokenVersion = claims.getOrDefault("ver", 0);
+                StudentUser user = users.findByEmailIgnoreCase(email).orElse(null);
+                if (user != null && tokenVersion instanceof Number version
+                        && version.intValue() == user.getTokenVersion()) {
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            user.getEmail(),
+                            null,
+                            List.of(new SimpleGrantedAuthority(
+                                    "ROLE_" + user.getRole())));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         }
         filterChain.doFilter(request, response);

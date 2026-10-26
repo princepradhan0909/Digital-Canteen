@@ -5,13 +5,17 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @Configuration
 public class FoodDataLoader {
 
     @Bean
-    CommandLineRunner loadFoodData(FoodItemRepository repository) {
+    CommandLineRunner loadFoodData(FoodItemRepository repository,
+                                   FoodCategoryRepository categories) {
         return args -> {
             List<FoodItem> foods = List.of(
                 new FoodItem("Veg Burger", "Snacks", 60.0, "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600"),
@@ -53,6 +57,27 @@ public class FoodDataLoader {
                 System.out.println("CampusBite: added "
                         + missingFoods.size() + " menu items.");
             }
+
+            Map<String, FoodCategory> categoriesByName = new HashMap<>();
+            categories.findAll().forEach(category -> categoriesByName.put(
+                    category.getName().trim().toLowerCase(Locale.ROOT), category));
+            int displayOrder = categoriesByName.size();
+            List<FoodItem> unlinkedFoods = repository.findAllByFoodCategoryIsNull();
+            for (FoodItem food : unlinkedFoods) {
+                if (food.getCategory() == null || food.getCategory().isBlank()) {
+                    continue;
+                }
+                String name = food.getCategory().trim();
+                String key = name.toLowerCase(Locale.ROOT);
+                FoodCategory category = categoriesByName.get(key);
+                if (category == null) {
+                    category = categories.save(new FoodCategory(
+                            name, null, displayOrder++));
+                    categoriesByName.put(key, category);
+                }
+                food.setFoodCategory(category);
+            }
+            repository.saveAll(unlinkedFoods);
         };
     }
 }

@@ -3,6 +3,7 @@ package com.giit.campusbite;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,13 +24,16 @@ import java.util.Map;
 public class AdminController {
 
     private final FoodItemRepository foods;
+    private final FoodCategoryRepository categories;
     private final CustomerOrderRepository orders;
     private final PaymentRepository payments;
 
     public AdminController(FoodItemRepository foods,
+                           FoodCategoryRepository categories,
                            CustomerOrderRepository orders,
                            PaymentRepository payments) {
         this.foods = foods;
+        this.categories = categories;
         this.orders = orders;
         this.payments = payments;
     }
@@ -40,22 +44,33 @@ public class AdminController {
     }
 
     @PostMapping("/foods")
+    @Transactional
     public ResponseEntity<?> createFood(@Valid @RequestBody FoodItem food) {
+        food.setFoodCategory(findOrCreateCategory(food.getCategory()));
+        food.setPrice(food.getPrice());
         food.setAvailable(true);
         return ResponseEntity.status(HttpStatus.CREATED).body(foods.save(food));
     }
 
     @PutMapping("/foods/{id}")
+    @Transactional
     public ResponseEntity<?> updateFood(
             @PathVariable Long id, @Valid @RequestBody FoodItem update) {
         return foods.findById(id).<ResponseEntity<?>>map(food -> {
             food.setName(update.getName());
-            food.setCategory(update.getCategory());
+            food.setFoodCategory(findOrCreateCategory(update.getCategory()));
             food.setPrice(update.getPrice());
             food.setImageUrl(update.getImageUrl());
             food.setAvailable(update.isAvailable());
             return ResponseEntity.ok(foods.save(food));
         }).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private FoodCategory findOrCreateCategory(String name) {
+        String normalizedName = name.trim().replaceAll("\\s+", " ");
+        return categories.findByNameIgnoreCase(normalizedName)
+                .orElseGet(() -> categories.save(new FoodCategory(
+                        normalizedName, null, (int) categories.count())));
     }
 
     @DeleteMapping("/foods/{id}")

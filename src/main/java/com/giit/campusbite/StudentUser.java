@@ -41,6 +41,9 @@ public class StudentUser {
     @Column(nullable = false, columnDefinition = "integer default 0")
     private Integer verificationAttempts = 0;
 
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int tokenVersion;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -69,6 +72,7 @@ public class StudentUser {
     public LocalDateTime getVerificationExpiresAt() { return verificationExpiresAt; }
     public LocalDateTime getVerificationSentAt() { return verificationSentAt; }
     public Integer getVerificationAttempts() { return verificationAttempts; }
+    public int getTokenVersion() { return tokenVersion; }
     public void setName(String name) { this.name = name; }
     public void setPhone(String phone) { this.phone = phone; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
@@ -78,4 +82,5 @@ public class StudentUser {
     public void setVerificationExpiresAt(LocalDateTime verificationExpiresAt) { this.verificationExpiresAt = verificationExpiresAt; }
     public void setVerificationSentAt(LocalDateTime verificationSentAt) { this.verificationSentAt = verificationSentAt; }
     public void setVerificationAttempts(Integer verificationAttempts) { this.verificationAttempts = verificationAttempts; }
+    public void incrementTokenVersion() { tokenVersion++; }
 }

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -39,17 +41,26 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Transactional
     public ResponseEntity<?> register(@Valid @RequestBody AuthRequest request) {
         if (request.getPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "Password must not exceed 72 UTF-8 bytes"));
+        }
+        if (!request.isTermsAccepted()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Accept the Terms of Service and Privacy Policy to create an account"));
         }
         if (request.getName() == null || request.getName().isBlank()
                 || request.getPhone() == null || request.getPhone().isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "Name and phone are required"));
         }
-        String email = request.getEmail().trim().toLowerCase();
+        if (!isValidPhone(request.getPhone())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Enter a valid phone number with 7 to 15 digits"));
+        }
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         StudentUser user = users.findByEmailIgnoreCase(email).orElse(null);
         if (user != null && user.isEmailVerified()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -134,6 +145,15 @@ public class AuthController {
         return ResponseEntity.ok(authResponse(user));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(Principal principal) {
+        users.findByEmailIgnoreCase(principal.getName()).ifPresent(user -> {
+            user.incrementTokenVersion();
+            users.save(user);
+        });
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     public ResponseEntity<?> me(Principal principal) {
         return users.findByEmailIgnoreCase(principal.getName())
@@ -151,6 +171,10 @@ public class AuthController {
             Principal principal, @Valid @RequestBody ProfileUpdateRequest request) {
         StudentUser user = users.findByEmailIgnoreCase(principal.getName())
                 .orElseThrow();
+        if (!isValidPhone(request.getPhone())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Enter a valid phone number with 7 to 15 digits"));
+        }
         user.setName(request.getName().trim());
         user.setPhone(request.getPhone().trim());
         if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
@@ -160,14 +184,10 @@ public class AuthController {
                         .body(Map.of("message", "New password must be 8-72 bytes"));
             }
             user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+            user.incrementTokenVersion();
         }
         user = users.save(user);
-        return ResponseEntity.ok(Map.of(
-                "id", user.getId(),
-                "name", user.getName(),
-                "email", user.getEmail(),
-                "phone", user.getPhone(),
-                "role", user.getRole()));
+        return ResponseEntity.ok(authResponse(user));
     }
 
     private Map<String, Object> authResponse(StudentUser user) {
@@ -191,6 +211,14 @@ public class AuthController {
         user.setVerificationAttempts(0);
         users.save(user);
         emailVerificationService.sendCode(user.getEmail(), code);
+    }
+
+    private boolean isValidPhone(String phone) {
+        if (phone == null || !phone.matches("[+()0-9 .-]{7,20}")) {
+            return false;
+        }
+        long digits = phone.chars().filter(Character::isDigit).count();
+        return digits >= 7 && digits <= 15;
     }
 
     private String hashCode(String code) {

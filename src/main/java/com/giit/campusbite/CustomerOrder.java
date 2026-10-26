@@ -11,6 +11,8 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
@@ -35,6 +37,9 @@ public class CustomerOrder {
     @Column(nullable = false)
     private Double totalAmount;
 
+    @Column(name = "total_amount_decimal", precision = 12, scale = 2)
+    private BigDecimal totalAmountDecimal;
+
     @Column(nullable = false)
     private String orderStatus = "PLACED";
 
@@ -49,6 +54,8 @@ public class CustomerOrder {
         this.studentName = studentName;
         this.studentPhone = studentPhone;
         this.totalAmount = totalAmount;
+        this.totalAmountDecimal = totalAmount == null ? null
+                : BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
         this.orderStatus = "PLACED";
         this.createdAt = LocalDateTime.now();
     }
@@ -87,6 +94,23 @@ public class CustomerOrder {
 
     public void setTotalAmount(Double totalAmount) {
         this.totalAmount = totalAmount;
+        this.totalAmountDecimal = totalAmount == null ? null
+                : BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal getTotalAmountDecimal() {
+        if (totalAmountDecimal != null) {
+            return totalAmountDecimal;
+        }
+        return totalAmount == null ? null
+                : BigDecimal.valueOf(totalAmount).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public void setTotalAmountDecimal(BigDecimal totalAmountDecimal) {
+        this.totalAmountDecimal = totalAmountDecimal == null ? null
+                : totalAmountDecimal.setScale(2, RoundingMode.UNNECESSARY);
+        this.totalAmount = totalAmountDecimal == null
+                ? null : totalAmountDecimal.doubleValue();
     }
 
     public String getOrderStatus() {
