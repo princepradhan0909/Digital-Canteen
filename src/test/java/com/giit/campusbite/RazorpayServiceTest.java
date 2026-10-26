@@ -25,6 +25,7 @@ class RazorpayServiceTest {
                 "key-id", "key-secret", secret, new ObjectMapper());
 
         assertTrue(service.verifyWebhookSignature(body, signature));
+        assertTrue(service.verifyWebhookSignature(body, "sha256=" + signature));
         assertFalse(service.verifyWebhookSignature(body + " ", signature));
     }
 }

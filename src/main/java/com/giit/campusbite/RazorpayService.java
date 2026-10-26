@@ -127,7 +127,7 @@ public class RazorpayService {
             byte[] expected = mac.doFinal(
                     (gatewayOrderId + "|" + gatewayPaymentId)
                             .getBytes(StandardCharsets.UTF_8));
-            byte[] supplied = HexFormat.of().parseHex(signature);
+            byte[] supplied = HexFormat.of().parseHex(normalizeSignature(signature));
             if (!MessageDigest.isEqual(expected, supplied)) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Payment signature is invalid");
@@ -158,10 +158,21 @@ public class RazorpayService {
             mac.init(new SecretKeySpec(
                     webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] expected = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            byte[] supplied = HexFormat.of().parseHex(signature);
+            byte[] supplied = HexFormat.of().parseHex(normalizeSignature(signature));
             return MessageDigest.isEqual(expected, supplied);
         } catch (Exception exception) {
             return false;
         }
+    }
+
+    private String normalizeSignature(String signature) {
+        if (signature == null) {
+            return null;
+        }
+        String normalized = signature.trim();
+        if (normalized.regionMatches(true, 0, "sha256=", 0, 7)) {
+            normalized = normalized.substring(7);
+        }
+        return normalized;
     }
 }

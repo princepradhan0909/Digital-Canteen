@@ -19,15 +19,18 @@ public class RazorpayWebhookController {
 
     private final RazorpayService razorpayService;
     private final PaymentRepository payments;
+    private final CustomerOrderRepository orders;
     private final NotificationService notifications;
     private final ObjectMapper objectMapper;
 
     public RazorpayWebhookController(RazorpayService razorpayService,
                                      PaymentRepository payments,
+                                     CustomerOrderRepository orders,
                                      NotificationService notifications,
                                      ObjectMapper objectMapper) {
         this.razorpayService = razorpayService;
         this.payments = payments;
+        this.orders = orders;
         this.notifications = notifications;
         this.objectMapper = objectMapper;
     }
@@ -72,9 +75,14 @@ public class RazorpayWebhookController {
         if (!"PAID".equals(payment.getPaymentStatus())) {
             payment.setGatewayPaymentId(gatewayPaymentId);
             payment.setPaymentStatus("PAID");
+            CustomerOrder order = payment.getCustomerOrder();
+            if ("PLACED".equals(order.getOrderStatus())) {
+                order.setOrderStatus("PREPARING");
+                orders.save(order);
+            }
             payments.save(payment);
-            notifications.notifyOrder(payment.getCustomerOrder(),
-                    "Payment for order #" + payment.getCustomerOrder().getId()
+            notifications.notifyOrder(order,
+                    "Payment for order #" + order.getId()
                             + " was successful.");
         }
         return ResponseEntity.ok(Map.of("received", true));
