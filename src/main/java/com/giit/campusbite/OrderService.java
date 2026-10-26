@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,24 +22,33 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
     private final OrderStatusHistoryRepository statusHistoryRepository;
+    private final NotificationService notificationService;
+    private final RazorpayService razorpayService;
+    private final StudentUserRepository users;
 
     public OrderService(
             CustomerOrderRepository orderRepository,
             FoodItemRepository foodRepository,
             OrderItemRepository orderItemRepository,
             PaymentRepository paymentRepository,
-            OrderStatusHistoryRepository statusHistoryRepository) {
+            OrderStatusHistoryRepository statusHistoryRepository,
+            NotificationService notificationService,
+            RazorpayService razorpayService,
+            StudentUserRepository users) {
 
         this.orderRepository = orderRepository;
         this.foodRepository = foodRepository;
         this.orderItemRepository = orderItemRepository;
         this.paymentRepository = paymentRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.notificationService = notificationService;
+        this.razorpayService = razorpayService;
+        this.users = users;
     }
 
     // Create a new order
     @Transactional
-    public CustomerOrder createOrder(OrderRequest request) {
+    public CustomerOrder createOrder(OrderRequest request, String studentEmail) {
 
         if (request == null || request.getItems() == null
                 || request.getItems().isEmpty()) {
@@ -67,9 +77,13 @@ public class OrderService {
         String paymentMethod = request.getPaymentMethod()
                 .trim().toUpperCase();
 
-        if (!Set.of("COUNTER", "ONLINE").contains(paymentMethod)) {
+        if ("ONLINE".equals(paymentMethod)) paymentMethod = "RAZORPAY";
+        if (!Set.of("COUNTER", "RAZORPAY").contains(paymentMethod)) {
             throw new IllegalArgumentException(
-                    "Payment method must be COUNTER or ONLINE");
+                    "Payment method must be COUNTER or RAZORPAY");
+        }
+        if ("RAZORPAY".equals(paymentMethod)) {
+            razorpayService.requireConfigured();
         }
 
         CustomerOrder order = new CustomerOrder(
@@ -78,7 +92,14 @@ public class OrderService {
                 0.0
         );
 
+        if (studentEmail != null) {
+            StudentUser student = users.findByEmailIgnoreCase(studentEmail)
+                    .orElseThrow(() -> new IllegalArgumentException("Student account not found"));
+            order.setStudentName(student.getName());
+            order.setStudentPhone(student.getPhone());
+        }
         order.setOrderStatus("PLACED");
+        order.setStudentEmail(studentEmail);
         order = orderRepository.save(order);
 
         double total = 0.0;
@@ -129,8 +150,15 @@ public class OrderService {
         statusHistoryRepository.save(
                 new OrderStatusHistory(order, "PLACED")
         );
+        notificationService.notifyOrder(order,
+                "Your order #" + order.getId() + " was received.");
 
         return order;
+    }
+
+    @Transactional
+    public CustomerOrder createOrder(OrderRequest request) {
+        return createOrder(request, null);
     }
 
     // Get an order by ID
@@ -195,8 +223,53 @@ public class OrderService {
         statusHistoryRepository.save(
                 new OrderStatusHistory(savedOrder, status)
         );
+        notificationService.notifyOrder(savedOrder,
+                "Order #" + savedOrder.getId() + " is now " +
+                        status.toLowerCase() + ".");
 
         return savedOrder;
+    }
+
+    public List<CustomerOrder> getOrdersForStudent(String email) {
+        return orderRepository.findByStudentEmailIgnoreCaseOrderByCreatedAtDesc(email);
+    }
+
+    public boolean canStudentAccessOrder(Long orderId, String email) {
+        return orderRepository.findByIdAndStudentEmailIgnoreCase(orderId, email)
+                .isPresent();
+    }
+
+    @Transactional
+    public Map<String, Object> createRazorpayOrder(Long orderId, String email) {
+        CustomerOrder order = findOwnedOrder(orderId, email);
+        Payment payment = paymentRepository.findByCustomerOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        if (!"RAZORPAY".equals(payment.getPaymentMethod())) {
+            throw new IllegalArgumentException("This order uses counter payment");
+        }
+        Map<String, Object> gatewayOrder = razorpayService.createOrder(payment);
+        paymentRepository.save(payment);
+        return gatewayOrder;
+    }
+
+    @Transactional
+    public Payment verifyRazorpayPayment(Long orderId, String email,
+                                         String gatewayOrderId,
+                                         String gatewayPaymentId,
+                                         String signature) {
+        findOwnedOrder(orderId, email);
+        Payment payment = paymentRepository.findByCustomerOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        razorpayService.verify(payment, gatewayOrderId, gatewayPaymentId, signature);
+        Payment saved = paymentRepository.save(payment);
+        notificationService.notifyOrder(saved.getCustomerOrder(),
+                "Payment for order #" + orderId + " was successful.");
+        return saved;
+    }
+
+    private CustomerOrder findOwnedOrder(Long orderId, String email) {
+        return orderRepository.findByIdAndStudentEmailIgnoreCase(orderId, email)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
     }
 
     // Get all items belonging to an order

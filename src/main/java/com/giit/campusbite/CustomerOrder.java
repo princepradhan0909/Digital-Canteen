@@ -27,6 +27,9 @@ public class CustomerOrder {
     @NotBlank
     private String studentPhone;
 
+    @Column
+    private String studentEmail;
+
     @NotNull
     @DecimalMin("0.0")
     @Column(nullable = false)
@@ -66,8 +69,16 @@ public class CustomerOrder {
         return studentPhone;
     }
 
+    public String getStudentEmail() {
+        return studentEmail;
+    }
+
     public void setStudentPhone(String studentPhone) {
         this.studentPhone = studentPhone;
+    }
+
+    public void setStudentEmail(String studentEmail) {
+        this.studentEmail = studentEmail;
     }
 
     public Double getTotalAmount() {
@@ -90,4 +101,3 @@ public class CustomerOrder {
         return createdAt;
     }
 }
-

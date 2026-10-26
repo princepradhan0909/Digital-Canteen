@@ -12,4 +12,6 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, Long> {
     List<FoodItem> findByCategoryIgnoreCase(String category);
 
     List<FoodItem> findByAvailableTrue();
+
+    boolean existsByNameIgnoreCase(String name);
 }

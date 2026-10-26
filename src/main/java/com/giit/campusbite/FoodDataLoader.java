@@ -13,11 +13,6 @@ public class FoodDataLoader {
     @Bean
     CommandLineRunner loadFoodData(FoodItemRepository repository) {
         return args -> {
-
-            if (repository.count() > 0) {
-                return;
-            }
-
             List<FoodItem> foods = List.of(
                 new FoodItem("Veg Burger", "Snacks", 60.0, "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600"),
                 new FoodItem("Cheese Pizza", "Fast Food", 150.0, "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600"),
@@ -37,12 +32,27 @@ public class FoodDataLoader {
                     new FoodItem("Gulab Jamun", "Desserts", 40.0, "https://images.unsplash.com/photo-1605197161470-5d3b6b5b6f3a?w=600"),
   
                
-                new FoodItem("Veg Thali", "Meals", 140.0, "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600")
+                new FoodItem("Veg Thali", "Meals", 140.0, "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600"),
+                new FoodItem("Paneer Tikka", "North Indian", 130.0, "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=600"),
+                new FoodItem("Samosa", "Snacks", 25.0, "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600"),
+                new FoodItem("Idli Sambar", "South Indian", 65.0, "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600"),
+                new FoodItem("Aloo Paratha", "North Indian", 75.0, "https://images.unsplash.com/photo-1626074353765-517a681e40be?w=600"),
+                new FoodItem("Hakka Noodles", "Fast Food", 95.0, "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600"),
+                new FoodItem("Margherita Pizza", "Fast Food", 130.0, "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600"),
+                new FoodItem("Mango Lassi", "Drinks", 55.0, "https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=600"),
+                new FoodItem("Fresh Lime Juice", "Drinks", 35.0, "https://images.unsplash.com/photo-1513558161293-cdaf765edfd7?w=600"),
+                new FoodItem("Fruit Bowl", "Healthy", 60.0, "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=600"),
+                new FoodItem("Cheese Masala Dosa", "South Indian", 95.0, "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=600")
             );
 
-            repository.saveAll(foods);
-            System.out.println("CampusBite: 15 food items inserted.");
+            List<FoodItem> missingFoods = foods.stream()
+                    .filter(food -> !repository.existsByNameIgnoreCase(food.getName()))
+                    .toList();
+            if (!missingFoods.isEmpty()) {
+                repository.saveAll(missingFoods);
+                System.out.println("CampusBite: added "
+                        + missingFoods.size() + " menu items.");
+            }
         };
     }
 }
-

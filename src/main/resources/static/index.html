@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#183d2b">
     <meta name="description" content="CampusBite - Order fresh and delicious food from your campus canteen.">
+    <link rel="manifest" href="manifest.webmanifest">
     <title>CampusBite | Your Campus Canteen</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,10 +27,14 @@
         <nav class="main-nav">
             <a href="#home">Home</a>
             <a href="#menu">Explore Menu</a>
+            <a href="#order-tracking">Track order</a>
             <a href="#about">About</a>
         </nav>
 
-        <a href="#cart-section" class="nav-cart">
+            <a href="#account-section" class="account-link" id="account-link">Sign in</a>
+            <button type="button" class="notification-button" id="notification-button"
+                    aria-label="Notifications" hidden>Updates <span id="notification-count">0</span></button>
+            <a href="#cart-section" class="nav-cart">
             <span aria-hidden="true">♧</span>
             Cart <span id="cart-count" class="cart-badge">0</span>
         </a>
@@ -50,7 +55,7 @@
                 </div>
 
                 <div class="hero-stats">
-                    <div><strong>15+</strong><span>Food choices</span></div>
+                    <div><strong id="food-choice-count">25+</strong><span>Food choices</span></div>
                     <div><strong>Easy</strong><span>Online ordering</span></div>
                     <div><strong>Local</strong><span>Campus canteen</span></div>
                 </div>
@@ -69,6 +74,93 @@
                 </div>
                 <span class="art-decoration decoration-one">✳</span>
                 <span class="art-decoration decoration-two">✦</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="account-section section-padding" id="account-section">
+        <div class="container account-layout">
+            <div class="account-copy">
+                <span class="eyebrow">YOUR CAMPUSBITE ACCOUNT</span>
+                <h2>Campus meals,<br><em>made personal.</em></h2>
+                <p>Sign in to place and track orders, manage your profile, and see order updates.</p>
+            </div>
+            <div class="account-card panel">
+                <div id="signed-out-view">
+                    <div class="account-tabs" role="tablist" aria-label="Account access">
+                        <button type="button" class="account-tab active" id="show-login">Sign in</button>
+                        <button type="button" class="account-tab" id="show-register">Create account</button>
+                    </div>
+                    <form id="login-form" class="account-form">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="email" required>
+                        <label for="login-password">Password</label>
+                        <input id="login-password" name="password" type="password" minlength="8" autocomplete="current-password" required>
+                        <p id="login-message" class="form-message" role="status"></p>
+                        <button type="submit" class="button button-primary button-full">Sign in</button>
+                    </form>
+                    <form id="register-form" class="account-form" hidden>
+                        <label for="register-name">Full name</label>
+                        <input id="register-name" name="name" maxlength="100" autocomplete="name" required>
+                        <label for="register-phone">Phone number</label>
+                        <input id="register-phone" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" maxlength="254" autocomplete="email" required>
+                        <label for="register-password">Password (at least 8 characters)</label>
+                        <input id="register-password" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                        <p id="register-message" class="form-message" role="status"></p>
+                        <button type="submit" class="button button-primary button-full">Create student account</button>
+                    </form>
+                    <form id="verify-email-form" class="account-form" hidden>
+                        <p>A six-digit code was sent to your email. It expires in 15 minutes.</p>
+                        <label for="verification-email">Email</label>
+                        <input id="verification-email" name="email" type="email" autocomplete="email" required>
+                        <label for="verification-code">Verification code</label>
+                        <input id="verification-code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+                        <p id="verification-message" class="form-message" role="status"></p>
+                        <button type="submit" class="button button-primary button-full">Verify email</button>
+                        <button type="button" class="button button-secondary button-full" id="resend-verification">Send another code</button>
+                    </form>
+                </div>
+                <div id="signed-in-view" hidden>
+                    <div class="panel-heading">
+                        <div><span class="eyebrow">ACCOUNT PROFILE</span><h3 id="profile-heading">Welcome back</h3></div>
+                        <span id="profile-role" class="panel-icon">✓</span>
+                    </div>
+                    <form id="profile-form" class="account-form">
+                        <label for="profile-name">Full name</label>
+                        <input id="profile-name" name="name" maxlength="100" required>
+                        <label for="profile-phone">Phone number</label>
+                        <input id="profile-phone" name="phone" type="tel" maxlength="20" required>
+                        <label for="profile-new-password">New password (optional)</label>
+                        <input id="profile-new-password" name="newPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password">
+                        <p id="profile-message" class="form-message" role="status"></p>
+                        <button type="submit" class="button button-primary button-full">Save profile</button>
+                    </form>
+                    <button type="button" class="button button-secondary button-full" id="logout-button">Sign out</button>
+                    <h4>Your recent orders</h4>
+                    <div id="my-order-list" class="my-order-list"></div>
+                </div>
+                <div id="admin-dashboard" class="admin-dashboard" hidden>
+                    <div class="panel-heading"><div><span class="eyebrow">STAFF TOOLS</span><h3>Canteen dashboard</h3></div></div>
+                    <label for="report-period">Sales report</label>
+                    <select id="report-period"><option value="daily">Today</option><option value="weekly">This week</option><option value="monthly">This month</option></select>
+                    <p id="sales-report" class="sales-report" role="status"></p>
+                    <h4>Menu availability</h4>
+                    <div id="admin-food-list"></div>
+                    <h4>Recent orders</h4>
+                    <div id="admin-order-list"></div>
+                    <form id="admin-food-form" class="account-form">
+                        <h4>Add a menu item</h4>
+                        <label for="admin-food-name">Name</label><input id="admin-food-name" name="name" required>
+                        <label for="admin-food-category">Category</label><input id="admin-food-category" name="category" required>
+                        <label for="admin-food-price">Price (₹)</label><input id="admin-food-price" name="price" type="number" min="0" step="0.01" required>
+                        <label for="admin-food-image">Image URL</label><input id="admin-food-image" name="imageUrl" type="url">
+                        <button type="submit" class="button button-primary button-full">Add item</button>
+                        <p id="admin-food-message" class="form-message" role="status"></p>
+                    </form>
+                </div>
+                <div id="notification-list" class="notification-list" hidden></div>
             </div>
         </div>
     </section>
@@ -105,6 +197,20 @@
                 <p>Try a different search or choose another category.</p>
                 <button class="button button-secondary" id="clear-filters" type="button">Clear filters</button>
             </div>
+        </div>
+    </section>
+
+    <section class="recommendation-section section-padding" id="recommended">
+        <div class="container">
+            <div class="section-heading">
+                <div>
+                    <span class="eyebrow">A LITTLE INSPIRATION</span>
+                    <h2>Popular on <em>campus.</em></h2>
+                    <p>Ranked from the food students order most often.</p>
+                </div>
+                <span class="menu-label">POPULAR PICKS <span>✳</span></span>
+            </div>
+            <div class="food-grid recommendation-grid" id="recommendation-list"></div>
         </div>
     </section>
 
@@ -149,14 +255,15 @@
                         <input id="student-name" name="studentName" type="text" placeholder="Enter your name" maxlength="100" autocomplete="name" required>
 
                         <label for="student-phone">Phone number</label>
-                        <input id="student-phone" name="studentPhone" type="tel" placeholder="Enter your phone number" inputmode="tel" pattern="[0-9+\-\s()]{10,16}" maxlength="16" autocomplete="tel" required>
+                        <input id="student-phone" name="studentPhone" type="tel" placeholder="Enter your phone number" inputmode="tel" maxlength="20" autocomplete="tel" required>
 
                         <label for="payment-method">Payment method</label>
                         <select id="payment-method" name="paymentMethod" required>
                             <option value="COUNTER">Pay at canteen counter</option>
+                            <option value="RAZORPAY">Pay online with UPI or card</option>
                         </select>
 
-                        <div class="payment-note"><span>ⓘ</span><p>Payment is collected at the canteen counter. Online payment is not enabled.</p></div>
+                        <div class="payment-note"><span>ⓘ</span><p>Online payment opens Razorpay Checkout. Card details are handled by Razorpay; CampusBite does not store them.</p></div>
 
                         <p class="form-message" id="checkout-message" role="status" aria-live="polite"></p>
 
@@ -171,7 +278,7 @@
                     <span class="eyebrow">ORDER RECEIVED</span>
                     <h3>That's a wrap!</h3>
                     <p id="confirmation-message">Your order has been submitted.</p>
-                    <p class="confirmation-note">Please pay at the canteen counter.</p>
+                    <p class="confirmation-note" id="confirmation-note">Your order status and payment updates will appear here.</p>
                     <button type="button" id="new-order-button" class="button button-primary button-full">Order something else ↗</button>
                 </div>
 
@@ -187,6 +294,29 @@
                         <span>03 / PLACE YOUR ORDER</span>
                     </div>
                 </aside>
+            </div>
+        </div>
+    </section>
+
+    <section class="tracking-section section-padding" id="order-tracking">
+        <div class="container tracking-layout">
+            <div>
+                <span class="eyebrow">YOUR ORDER, AT A GLANCE</span>
+                <h2>Track your <em>order.</em></h2>
+                <p class="tracking-intro">Enter the order number from your confirmation. We’ll refresh its progress while this page is open.</p>
+                <form id="tracking-form" class="tracking-form">
+                    <label class="sr-only" for="tracking-order-id">Order number</label>
+                    <input id="tracking-order-id" name="orderId" type="number" min="1" step="1" placeholder="e.g. 42" required>
+                    <button type="submit" class="button button-primary">Track order <span>→</span></button>
+                </form>
+                <p id="tracking-message" class="tracking-message" role="status" aria-live="polite"></p>
+            </div>
+            <div id="tracking-result" class="tracking-result panel" aria-live="polite" hidden>
+                <div class="tracking-result-heading">
+                    <div><span class="eyebrow">ORDER <span id="tracked-order-id"></span></span><h3 id="tracked-order-status">Waiting for an update</h3></div>
+                    <span id="tracking-status-icon" class="panel-icon">◷</span>
+                </div>
+                <ol id="tracking-timeline" class="tracking-timeline"></ol>
             </div>
         </div>
     </section>

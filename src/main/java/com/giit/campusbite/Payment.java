@@ -32,6 +32,8 @@ public class Payment {
 
     private String gatewayPaymentId;
 
+    private String gatewayOrderId;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Payment() {
@@ -78,6 +80,14 @@ public class Payment {
 
     public void setGatewayPaymentId(String gatewayPaymentId) {
         this.gatewayPaymentId = gatewayPaymentId;
+    }
+
+    public String getGatewayOrderId() {
+        return gatewayOrderId;
+    }
+
+    public void setGatewayOrderId(String gatewayOrderId) {
+        this.gatewayOrderId = gatewayOrderId;
     }
 
     public LocalDateTime getCreatedAt() {
