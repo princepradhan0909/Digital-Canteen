@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -41,6 +42,8 @@ public class SecurityConfig {
                                 "/api/auth/me", "/api/auth/logout",
                                 "/api/foods/**", "/api/catalog/**").authenticated()
                         .anyRequest().denyAll())
+                .addFilterBefore(new RegistrationRequestDiagnostics.Filter(),
+                        SecurityContextHolderFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
